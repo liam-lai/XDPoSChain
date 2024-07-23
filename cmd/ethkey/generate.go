@@ -19,13 +19,12 @@ package main
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/XinFinOrg/XDPoSChain/accounts/keystore"
+	"github.com/XinFinOrg/XDPoSChain/cmd/utils"
+	"github.com/XinFinOrg/XDPoSChain/crypto"
 	"github.com/pborman/uuid"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -100,7 +99,7 @@ If you want to encrypt an existing private key, it can be specified by setting
 		if err := os.MkdirAll(filepath.Dir(keyfilepath), 0700); err != nil {
 			utils.Fatalf("Could not create directory %s", filepath.Dir(keyfilepath))
 		}
-		if err := ioutil.WriteFile(keyfilepath, keyjson, 0600); err != nil {
+		if err := os.WriteFile(keyfilepath, keyjson, 0600); err != nil {
 			utils.Fatalf("Failed to write keyfile to %s: %v", keyfilepath, err)
 		}
 

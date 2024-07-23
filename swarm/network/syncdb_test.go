@@ -19,15 +19,14 @@ package network
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/swarm/storage"
+	"github.com/XinFinOrg/XDPoSChain/crypto"
+	"github.com/XinFinOrg/XDPoSChain/log"
+	"github.com/XinFinOrg/XDPoSChain/swarm/storage"
 )
 
 func init() {
@@ -47,7 +46,7 @@ type testSyncDb struct {
 
 func newTestSyncDb(priority, bufferSize, batchSize int, dbdir string, t *testing.T) *testSyncDb {
 	if len(dbdir) == 0 {
-		tmp, err := ioutil.TempDir(os.TempDir(), "syncdb-test")
+		tmp, err := os.MkdirTemp(os.TempDir(), "syncdb-test")
 		if err != nil {
 			t.Fatalf("unable to create temporary direcory %v: %v", tmp, err)
 		}

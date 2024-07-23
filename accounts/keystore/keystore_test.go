@@ -17,7 +17,6 @@
 package keystore
 
 import (
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"runtime"
@@ -26,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/event"
+	"github.com/XinFinOrg/XDPoSChain/accounts"
+	"github.com/XinFinOrg/XDPoSChain/common"
+	"github.com/XinFinOrg/XDPoSChain/event"
 )
 
 var testSigData = make([]byte, 32)
@@ -375,7 +374,7 @@ func checkEvents(t *testing.T, want []walletEvent, have []walletEvent) {
 }
 
 func tmpKeyStore(t *testing.T, encrypted bool) (string, *KeyStore) {
-	d, err := ioutil.TempDir("", "eth-keystore-test")
+	d, err := os.MkdirTemp("", "eth-keystore-test")
 	if err != nil {
 		t.Fatal(err)
 	}

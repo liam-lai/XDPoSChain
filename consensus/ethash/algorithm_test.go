@@ -18,16 +18,15 @@ package ethash
 
 import (
 	"bytes"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"reflect"
 	"sync"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/XinFinOrg/XDPoSChain/common"
+	"github.com/XinFinOrg/XDPoSChain/common/hexutil"
+	"github.com/XinFinOrg/XDPoSChain/core/types"
 )
 
 // Tests whether the dataset size calculator works correctly by cross checking the
@@ -688,7 +687,7 @@ func TestHashimoto(t *testing.T) {
 // Tests that caches generated on disk may be done concurrently.
 func TestConcurrentDiskCacheGeneration(t *testing.T) {
 	// Create a temp folder to generate the caches into
-	cachedir, err := ioutil.TempDir("", "")
+	cachedir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatalf("Failed to create temporary cache dir: %v", err)
 	}

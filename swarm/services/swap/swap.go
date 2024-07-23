@@ -26,14 +26,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/contracts/chequebook"
-	"github.com/ethereum/go-ethereum/contracts/chequebook/contract"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/swarm/services/swap/swap"
+	"github.com/XinFinOrg/XDPoSChain/accounts/abi/bind"
+	"github.com/XinFinOrg/XDPoSChain/common"
+	"github.com/XinFinOrg/XDPoSChain/contracts/chequebook"
+	"github.com/XinFinOrg/XDPoSChain/contracts/chequebook/contract"
+	"github.com/XinFinOrg/XDPoSChain/core/types"
+	"github.com/XinFinOrg/XDPoSChain/crypto"
+	"github.com/XinFinOrg/XDPoSChain/log"
+	"github.com/XinFinOrg/XDPoSChain/swarm/services/swap/swap"
 )
 
 // SwAP       Swarm Accounting Protocol with
@@ -80,7 +80,7 @@ type PayProfile struct {
 	lock        sync.RWMutex
 }
 
-//create params with default values
+// create params with default values
 func NewDefaultSwapParams() *SwapParams {
 	return &SwapParams{
 		PayProfile: &PayProfile{},
@@ -102,8 +102,8 @@ func NewDefaultSwapParams() *SwapParams {
 	}
 }
 
-//this can only finally be set after all config options (file, cmd line, env vars)
-//have been evaluated
+// this can only finally be set after all config options (file, cmd line, env vars)
+// have been evaluated
 func (self *SwapParams) Init(contract common.Address, prvkey *ecdsa.PrivateKey) {
 	pubkey := &prvkey.PublicKey
 
@@ -141,8 +141,12 @@ func NewSwap(local *SwapParams, remote *SwapProfile, backend chequebook.Backend,
 	if !ok {
 		log.Info(fmt.Sprintf("invalid contract %v for peer %v: %v)", remote.Contract.Hex()[:8], proto, err))
 	} else {
+		pub, err := crypto.UnmarshalPubkey(common.FromHex(remote.PublicKey))
+		if err != nil {
+			return nil, err
+		}
 		// remote contract valid, create inbox
-		in, err = chequebook.NewInbox(local.privateKey, remote.Contract, local.Beneficiary, crypto.ToECDSAPub(common.FromHex(remote.PublicKey)), backend)
+		in, err = chequebook.NewInbox(local.privateKey, remote.Contract, local.Beneficiary, pub, backend)
 		if err != nil {
 			log.Warn(fmt.Sprintf("unable to set up inbox for chequebook contract %v for peer %v: %v)", remote.Contract.Hex()[:8], proto, err))
 		}

@@ -20,13 +20,12 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/XinFinOrg/XDPoSChain/log"
 )
 
 // makeWizard creates and returns a new puppeth wizard.
@@ -76,7 +75,7 @@ func (w *wizard) run() {
 	// Load initial configurations and connect to all live servers
 	w.conf.path = filepath.Join(os.Getenv("HOME"), ".puppeth", w.network)
 
-	blob, err := ioutil.ReadFile(w.conf.path)
+	blob, err := os.ReadFile(w.conf.path)
 	if err != nil {
 		log.Warn("No previous configurations found", "path", w.conf.path)
 	} else if err := json.Unmarshal(blob, &w.conf); err != nil {

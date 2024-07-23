@@ -35,13 +35,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/XinFinOrg/XDPoSChain/log"
+	"github.com/XinFinOrg/XDPoSChain/node"
+	"github.com/XinFinOrg/XDPoSChain/p2p"
+	"github.com/XinFinOrg/XDPoSChain/p2p/discover"
+	"github.com/XinFinOrg/XDPoSChain/rpc"
 	"github.com/docker/docker/pkg/reexec"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/discover"
-	"github.com/ethereum/go-ethereum/rpc"
-	"golang.org/x/net/websocket"
+	"github.com/gorilla/websocket"
 )
 
 // ExecAdapter is a NodeAdapter which runs simulation nodes by executing the
@@ -288,29 +288,35 @@ func (n *ExecNode) NodeInfo() *p2p.NodeInfo {
 
 // ServeRPC serves RPC requests over the given connection by dialling the
 // node's WebSocket address and joining the two connections
-func (n *ExecNode) ServeRPC(clientConn net.Conn) error {
-	conn, err := websocket.Dial(n.wsAddr, "", "http://localhost")
+func (n *ExecNode) ServeRPC(clientConn *websocket.Conn) error {
+	conn, _, err := websocket.DefaultDialer.Dial(n.wsAddr, nil)
 	if err != nil {
 		return err
 	}
 	var wg sync.WaitGroup
 	wg.Add(2)
-	join := func(src, dst net.Conn) {
-		defer wg.Done()
-		io.Copy(dst, src)
-		// close the write end of the destination connection
-		if cw, ok := dst.(interface {
-			CloseWrite() error
-		}); ok {
-			cw.CloseWrite()
-		} else {
-			dst.Close()
+	go wsCopy(&wg, conn, clientConn)
+	go wsCopy(&wg, clientConn, conn)
+	wg.Wait()
+	conn.Close()
+	return nil
+}
+
+func wsCopy(wg *sync.WaitGroup, src, dst *websocket.Conn) {
+	defer wg.Done()
+	for {
+		msgType, r, err := src.NextReader()
+		if err != nil {
+			return
+		}
+		w, err := dst.NextWriter(msgType)
+		if err != nil {
+			return
+		}
+		if _, err = io.Copy(w, r); err != nil {
+			return
 		}
 	}
-	go join(conn, clientConn)
-	go join(clientConn, conn)
-	wg.Wait()
-	return nil
 }
 
 // Snapshots creates snapshots of the services by calling the
@@ -465,6 +471,8 @@ func (s *snapshotService) Start(*p2p.Server) error {
 	return nil
 }
 
+func (s *snapshotService) SaveData() {
+}
 func (s *snapshotService) Stop() error {
 	return nil
 }

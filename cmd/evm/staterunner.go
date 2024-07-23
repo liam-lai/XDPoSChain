@@ -20,13 +20,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/tests"
+	"github.com/XinFinOrg/XDPoSChain/core/state"
+	"github.com/XinFinOrg/XDPoSChain/core/vm"
+	"github.com/XinFinOrg/XDPoSChain/log"
+	"github.com/XinFinOrg/XDPoSChain/tests"
 
 	cli "gopkg.in/urfave/cli.v1"
 )
@@ -76,7 +75,7 @@ func stateTestCmd(ctx *cli.Context) error {
 		debugger = vm.NewStructLogger(config)
 	}
 	// Load the test content from the input file
-	src, err := ioutil.ReadFile(ctx.Args().First())
+	src, err := os.ReadFile(ctx.Args().First())
 	if err != nil {
 		return err
 	}

@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"reflect"
 	"strings"
@@ -30,12 +29,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/XinFinOrg/XDPoSChain/crypto"
+	"github.com/XinFinOrg/XDPoSChain/crypto/ecies"
+	"github.com/XinFinOrg/XDPoSChain/crypto/sha3"
+	"github.com/XinFinOrg/XDPoSChain/p2p/discover"
+	"github.com/XinFinOrg/XDPoSChain/rlp"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/ethereum/go-ethereum/p2p/discover"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 func TestSharedSecret(t *testing.T) {
@@ -305,7 +304,7 @@ ba628a4ba590cb43f7848f41c4382885
 	if msg.Code != 8 {
 		t.Errorf("msg code mismatch: got %d, want %d", msg.Code, 8)
 	}
-	payload, _ := ioutil.ReadAll(msg.Payload)
+	payload, _ := io.ReadAll(msg.Payload)
 	wantPayload := unhex("C401020304")
 	if !bytes.Equal(payload, wantPayload) {
 		t.Errorf("msg payload mismatch:\ngot  %x\nwant %x", payload, wantPayload)
@@ -370,7 +369,7 @@ func TestRLPXFrameRW(t *testing.T) {
 		if msg.Code != uint64(i) {
 			t.Fatalf("msg code mismatch: got %d, want %d", msg.Code, i)
 		}
-		payload, _ := ioutil.ReadAll(msg.Payload)
+		payload, _ := io.ReadAll(msg.Payload)
 		wantPayload, _ := rlp.EncodeToBytes(wmsg)
 		if !bytes.Equal(payload, wantPayload) {
 			t.Fatalf("msg payload mismatch:\ngot  %x\nwant %x", payload, wantPayload)

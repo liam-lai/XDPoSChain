@@ -19,11 +19,11 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"os"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/XinFinOrg/XDPoSChain/accounts/keystore"
+	"github.com/XinFinOrg/XDPoSChain/cmd/utils"
+	"github.com/XinFinOrg/XDPoSChain/crypto"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -54,7 +54,7 @@ make sure to use this feature with great caution!`,
 		keyfilepath := ctx.Args().First()
 
 		// Read key from file.
-		keyjson, err := ioutil.ReadFile(keyfilepath)
+		keyjson, err := os.ReadFile(keyfilepath)
 		if err != nil {
 			utils.Fatalf("Failed to read the keyfile at '%s': %v", keyfilepath, err)
 		}

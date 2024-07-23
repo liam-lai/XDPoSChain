@@ -30,20 +30,19 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/contracts/chequebook/contract"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/swarm/services/swap/swap"
+	"github.com/XinFinOrg/XDPoSChain/accounts/abi/bind"
+	"github.com/XinFinOrg/XDPoSChain/common"
+	"github.com/XinFinOrg/XDPoSChain/common/hexutil"
+	"github.com/XinFinOrg/XDPoSChain/contracts/chequebook/contract"
+	"github.com/XinFinOrg/XDPoSChain/core/types"
+	"github.com/XinFinOrg/XDPoSChain/crypto"
+	"github.com/XinFinOrg/XDPoSChain/log"
+	"github.com/XinFinOrg/XDPoSChain/swarm/services/swap/swap"
 )
 
 // TODO(zelig): watch peer solvency and notify of bouncing cheques
@@ -160,7 +159,7 @@ func (self *Chequebook) setBalanceFromBlockChain() {
 // LoadChequebook loads a chequebook from disk (file path).
 func LoadChequebook(path string, prvKey *ecdsa.PrivateKey, backend Backend, checkBalance bool) (self *Chequebook, err error) {
 	var data []byte
-	data, err = ioutil.ReadFile(path)
+	data, err = os.ReadFile(path)
 	if err != nil {
 		return
 	}
@@ -230,7 +229,7 @@ func (self *Chequebook) Save() (err error) {
 	}
 	self.log.Trace("Saving chequebook to disk", self.path)
 
-	return ioutil.WriteFile(self.path, data, os.ModePerm)
+	return os.WriteFile(self.path, data, os.ModePerm)
 }
 
 // Stop quits the autodeposit go routine to terminate

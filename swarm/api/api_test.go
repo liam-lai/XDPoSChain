@@ -20,17 +20,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/swarm/storage"
+	"github.com/XinFinOrg/XDPoSChain/common"
+	"github.com/XinFinOrg/XDPoSChain/log"
+	"github.com/XinFinOrg/XDPoSChain/swarm/storage"
 )
 
 func testApi(t *testing.T, f func(*Api)) {
-	datadir, err := ioutil.TempDir("", "bzz-test")
+	datadir, err := os.MkdirTemp("", "bzz-test")
 	if err != nil {
 		t.Fatalf("unable to create temp dir: %v", err)
 	}

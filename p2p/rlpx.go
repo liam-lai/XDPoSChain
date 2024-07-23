@@ -29,18 +29,17 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	mrand "math/rand"
 	"net"
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"github.com/ethereum/go-ethereum/crypto/secp256k1"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/ethereum/go-ethereum/p2p/discover"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/XinFinOrg/XDPoSChain/crypto"
+	"github.com/XinFinOrg/XDPoSChain/crypto/ecies"
+	"github.com/XinFinOrg/XDPoSChain/crypto/secp256k1"
+	"github.com/XinFinOrg/XDPoSChain/crypto/sha3"
+	"github.com/XinFinOrg/XDPoSChain/p2p/discover"
+	"github.com/XinFinOrg/XDPoSChain/rlp"
 	"github.com/golang/snappy"
 )
 
@@ -529,9 +528,9 @@ func importPublicKey(pubKey []byte) (*ecies.PublicKey, error) {
 		return nil, fmt.Errorf("invalid public key length %v (expect 64/65)", len(pubKey))
 	}
 	// TODO: fewer pointless conversions
-	pub := crypto.ToECDSAPub(pubKey65)
-	if pub.X == nil {
-		return nil, fmt.Errorf("invalid public key")
+	pub, err := crypto.UnmarshalPubkey(pubKey65)
+	if err != nil {
+		return nil, err
 	}
 	return ecies.ImportECDSAPublic(pub), nil
 }
@@ -606,7 +605,7 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 		if msg.Size > maxUint24 {
 			return errPlainMessageTooLarge
 		}
-		payload, _ := ioutil.ReadAll(msg.Payload)
+		payload, _ := io.ReadAll(msg.Payload)
 		payload = snappy.Encode(nil, payload)
 
 		msg.Payload = bytes.NewReader(payload)
@@ -700,7 +699,7 @@ func (rw *rlpxFrameRW) ReadMsg() (msg Msg, err error) {
 
 	// if snappy is enabled, verify and decompress message
 	if rw.snappy {
-		payload, err := ioutil.ReadAll(msg.Payload)
+		payload, err := io.ReadAll(msg.Payload)
 		if err != nil {
 			return msg, err
 		}

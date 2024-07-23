@@ -18,7 +18,6 @@ package keystore
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -27,10 +26,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/XinFinOrg/XDPoSChain/accounts"
+	"github.com/XinFinOrg/XDPoSChain/common"
 	"github.com/cespare/cp"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
@@ -381,11 +380,11 @@ func TestUpdatedKeyfileContents(t *testing.T) {
 		return
 	}
 
-	// needed so that modTime of `file` is different to its current value after ioutil.WriteFile
+	// needed so that modTime of `file` is different to its current value after os.WriteFile
 	time.Sleep(1000 * time.Millisecond)
 
 	// Now replace file contents with crap
-	if err := ioutil.WriteFile(file, []byte("foo"), 0644); err != nil {
+	if err := os.WriteFile(file, []byte("foo"), 0644); err != nil {
 		t.Fatal(err)
 		return
 	}
@@ -398,9 +397,9 @@ func TestUpdatedKeyfileContents(t *testing.T) {
 
 // forceCopyFile is like cp.CopyFile, but doesn't complain if the destination exists.
 func forceCopyFile(dst, src string) error {
-	data, err := ioutil.ReadFile(src)
+	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(dst, data, 0644)
+	return os.WriteFile(dst, data, 0644)
 }

@@ -21,14 +21,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/XinFinOrg/XDPoSChain/log"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -72,7 +71,7 @@ func dial(server string, pubkey []byte) (*sshClient, error) {
 	var auths []ssh.AuthMethod
 
 	path := filepath.Join(user.HomeDir, ".ssh", "id_rsa")
-	if buf, err := ioutil.ReadFile(path); err != nil {
+	if buf, err := os.ReadFile(path); err != nil {
 		log.Warn("No SSH key, falling back to passwords", "path", path, "err", err)
 	} else {
 		key, err := ssh.ParsePrivateKey(buf)

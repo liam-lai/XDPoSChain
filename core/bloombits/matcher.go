@@ -26,8 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/bitutil"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/XinFinOrg/XDPoSChain/common/bitutil"
+	"github.com/XinFinOrg/XDPoSChain/crypto"
 )
 
 // bloomIndexes represents the bit indexes inside the bloom filter that belong
@@ -606,6 +606,9 @@ func (s *MatcherSession) DeliverSections(bit uint, sections []uint64, bitsets []
 // of the session, any request in-flight need to be responded to! Empty responses
 // are fine though in that case.
 func (s *MatcherSession) Multiplex(batch int, wait time.Duration, mux chan chan *Retrieval) {
+	ticker := time.NewTicker(wait)
+	defer ticker.Stop()
+
 	for {
 		// Allocate a new bloom bit index to retrieve data for, stopping when done
 		bit, ok := s.AllocateRetrieval()
@@ -621,7 +624,7 @@ func (s *MatcherSession) Multiplex(batch int, wait time.Duration, mux chan chan 
 				s.DeliverSections(bit, []uint64{}, [][]byte{})
 				return
 
-			case <-time.After(wait):
+			case <-ticker.C:
 				// Throttling up, fetch whatever's available
 			}
 		}

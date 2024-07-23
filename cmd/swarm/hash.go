@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/swarm/storage"
+	"github.com/XinFinOrg/XDPoSChain/cmd/utils"
+	"github.com/XinFinOrg/XDPoSChain/swarm/storage"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -33,7 +33,7 @@ func hash(ctx *cli.Context) {
 	}
 	f, err := os.Open(args[0])
 	if err != nil {
-		utils.Fatalf("Error opening file " + args[1])
+		utils.Fatalf("Error opening file " + args[0])
 	}
 	defer f.Close()
 

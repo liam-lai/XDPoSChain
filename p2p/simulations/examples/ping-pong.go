@@ -19,19 +19,19 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/discover"
-	"github.com/ethereum/go-ethereum/p2p/simulations"
-	"github.com/ethereum/go-ethereum/p2p/simulations/adapters"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/XinFinOrg/XDPoSChain/log"
+	"github.com/XinFinOrg/XDPoSChain/node"
+	"github.com/XinFinOrg/XDPoSChain/p2p"
+	"github.com/XinFinOrg/XDPoSChain/p2p/discover"
+	"github.com/XinFinOrg/XDPoSChain/p2p/simulations"
+	"github.com/XinFinOrg/XDPoSChain/p2p/simulations/adapters"
+	"github.com/XinFinOrg/XDPoSChain/rpc"
 )
 
 var adapterType = flag.String("adapter", "sim", `node adapter to use (one of "sim", "exec" or "docker")`)
@@ -62,7 +62,7 @@ func main() {
 		adapter = adapters.NewSimAdapter(services)
 
 	case "exec":
-		tmpdir, err := ioutil.TempDir("", "p2p-example")
+		tmpdir, err := os.MkdirTemp("", "p2p-example")
 		if err != nil {
 			log.Crit("error creating temp dir", "err", err)
 		}
@@ -127,6 +127,9 @@ func (p *pingPongService) Start(server *p2p.Server) error {
 	return nil
 }
 
+func (p *pingPongService) SaveData() {
+}
+
 func (p *pingPongService) Stop() error {
 	p.log.Info("ping-pong service stopping")
 	return nil
@@ -167,7 +170,7 @@ func (p *pingPongService) Run(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 				errC <- err
 				return
 			}
-			payload, err := ioutil.ReadAll(msg.Payload)
+			payload, err := io.ReadAll(msg.Payload)
 			if err != nil {
 				errC <- err
 				return

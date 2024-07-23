@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"net"
 	"os"
@@ -30,9 +29,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/XinFinOrg/XDPoSChain/common"
+	"github.com/XinFinOrg/XDPoSChain/core"
+	"github.com/XinFinOrg/XDPoSChain/log"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -62,8 +61,8 @@ func (c config) servers() []string {
 func (c config) flush() {
 	os.MkdirAll(filepath.Dir(c.path), 0755)
 
-	out, _ := json.MarshalIndent(c, "", "  ")
-	if err := ioutil.WriteFile(c.path, out, 0644); err != nil {
+	out, _ := json.MarshalIndent(c.Genesis, "", "  ")
+	if err := os.WriteFile(c.path, out, 0644); err != nil {
 		log.Warn("Failed to save puppeth configs", "file", c.path, "err", err)
 	}
 }

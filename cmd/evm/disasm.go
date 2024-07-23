@@ -19,10 +19,10 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/core/asm"
+	"github.com/XinFinOrg/XDPoSChain/core/asm"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -39,7 +39,7 @@ func disasmCmd(ctx *cli.Context) error {
 	}
 
 	fn := ctx.Args().First()
-	in, err := ioutil.ReadFile(fn)
+	in, err := os.ReadFile(fn)
 	if err != nil {
 		return err
 	}

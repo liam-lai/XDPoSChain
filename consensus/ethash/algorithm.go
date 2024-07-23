@@ -27,11 +27,11 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/bitutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/XinFinOrg/XDPoSChain/common"
+	"github.com/XinFinOrg/XDPoSChain/common/bitutil"
+	"github.com/XinFinOrg/XDPoSChain/crypto"
+	"github.com/XinFinOrg/XDPoSChain/crypto/sha3"
+	"github.com/XinFinOrg/XDPoSChain/log"
 )
 
 const (
@@ -156,12 +156,16 @@ func generateCache(dest []uint32, epoch uint64, seed []byte) {
 	defer close(done)
 
 	go func() {
+		waitDuration := 3 * time.Second
+		timer := time.NewTimer(waitDuration)
+		defer timer.Stop()
 		for {
 			select {
 			case <-done:
 				return
-			case <-time.After(3 * time.Second):
+			case <-timer.C:
 				logger.Info("Generating ethash verification cache", "percentage", atomic.LoadUint32(&progress)*100/uint32(rows)/4, "elapsed", common.PrettyDuration(time.Since(start)))
+				timer.Reset(waitDuration)
 			}
 		}
 	}()

@@ -20,17 +20,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 
+	"github.com/XinFinOrg/XDPoSChain/log"
+	"github.com/XinFinOrg/XDPoSChain/node"
+	"github.com/XinFinOrg/XDPoSChain/p2p/discover"
 	"github.com/docker/docker/pkg/reexec"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p/discover"
 )
 
 // DockerAdapter is a NodeAdapter which runs simulation nodes inside Docker
@@ -141,7 +140,7 @@ const dockerImage = "p2p-node"
 // when executed.
 func buildDockerImage() error {
 	// create a directory to use as the build context
-	dir, err := ioutil.TempDir("", "p2p-docker")
+	dir, err := os.MkdirTemp("", "p2p-docker")
 	if err != nil {
 		return err
 	}
@@ -168,7 +167,7 @@ FROM ubuntu:16.04
 RUN mkdir /data
 ADD self.bin /bin/p2p-node
 	`)
-	if err := ioutil.WriteFile(filepath.Join(dir, "Dockerfile"), dockerfile, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), dockerfile, 0644); err != nil {
 		return err
 	}
 

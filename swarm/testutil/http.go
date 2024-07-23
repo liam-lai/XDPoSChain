@@ -17,18 +17,17 @@
 package testutil
 
 import (
-	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/swarm/api"
-	httpapi "github.com/ethereum/go-ethereum/swarm/api/http"
-	"github.com/ethereum/go-ethereum/swarm/storage"
+	"github.com/XinFinOrg/XDPoSChain/swarm/api"
+	httpapi "github.com/XinFinOrg/XDPoSChain/swarm/api/http"
+	"github.com/XinFinOrg/XDPoSChain/swarm/storage"
 )
 
 func NewTestSwarmServer(t *testing.T) *TestSwarmServer {
-	dir, err := ioutil.TempDir("", "swarm-storage-test")
+	dir, err := os.MkdirTemp("", "swarm-storage-test")
 	if err != nil {
 		t.Fatal(err)
 	}

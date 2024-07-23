@@ -28,23 +28,22 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/console"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/discover"
-	"github.com/ethereum/go-ethereum/p2p/nat"
-	"github.com/ethereum/go-ethereum/whisper/mailserver"
-	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
+	"github.com/XinFinOrg/XDPoSChain/cmd/utils"
+	"github.com/XinFinOrg/XDPoSChain/common"
+	"github.com/XinFinOrg/XDPoSChain/console"
+	"github.com/XinFinOrg/XDPoSChain/crypto"
+	"github.com/XinFinOrg/XDPoSChain/log"
+	"github.com/XinFinOrg/XDPoSChain/p2p"
+	"github.com/XinFinOrg/XDPoSChain/p2p/discover"
+	"github.com/XinFinOrg/XDPoSChain/p2p/nat"
+	"github.com/XinFinOrg/XDPoSChain/whisper/mailserver"
+	whisper "github.com/XinFinOrg/XDPoSChain/whisper/whisperv6"
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -140,8 +139,8 @@ func processArgs() {
 	}
 
 	if *asymmetricMode && len(*argPub) > 0 {
-		pub = crypto.ToECDSAPub(common.FromHex(*argPub))
-		if !isKeyValid(pub) {
+		var err error
+		if pub, err = crypto.UnmarshalPubkey(common.FromHex(*argPub)); err != nil {
 			utils.Fatalf("invalid public key")
 		}
 	}
@@ -338,9 +337,8 @@ func configureNode() {
 			if b == nil {
 				utils.Fatalf("Error: can not convert hexadecimal string")
 			}
-			pub = crypto.ToECDSAPub(b)
-			if !isKeyValid(pub) {
-				utils.Fatalf("Error: invalid public key")
+			if pub, err = crypto.UnmarshalPubkey(b); err != nil {
+				utils.Fatalf("Error: invalid peer public key")
 			}
 		}
 	}
@@ -483,7 +481,7 @@ func sendFilesLoop() {
 			fmt.Println("Quit command received")
 			return
 		}
-		b, err := ioutil.ReadFile(s)
+		b, err := os.ReadFile(s)
 		if err != nil {
 			fmt.Printf(">>> Error: %s \n", err)
 		} else {
@@ -513,7 +511,7 @@ func fileReaderLoop() {
 			fmt.Println("Quit command received")
 			return
 		}
-		raw, err := ioutil.ReadFile(s)
+		raw, err := os.ReadFile(s)
 		if err != nil {
 			fmt.Printf(">>> Error: %s \n", err)
 		} else {
@@ -670,7 +668,7 @@ func writeMessageToFile(dir string, msg *whisper.ReceivedMessage, show bool) {
 	//}
 
 	fullpath := filepath.Join(dir, name)
-	err := ioutil.WriteFile(fullpath, env.Data, 0644)
+	err := os.WriteFile(fullpath, env.Data, 0644)
 	if err != nil {
 		fmt.Printf("\n%s {%x}: message received but not saved: %s\n", timestamp, address, err)
 	} else if show {

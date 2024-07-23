@@ -23,25 +23,27 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net"
+	"net/http"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/les"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/rpc"
-	"golang.org/x/net/websocket"
+	"github.com/XinFinOrg/XDPoSChain/common"
+	"github.com/XinFinOrg/XDPoSChain/common/mclock"
+	"github.com/XinFinOrg/XDPoSChain/consensus"
+	"github.com/XinFinOrg/XDPoSChain/consensus/XDPoS"
+	"github.com/XinFinOrg/XDPoSChain/core"
+	"github.com/XinFinOrg/XDPoSChain/core/types"
+	"github.com/XinFinOrg/XDPoSChain/eth"
+	"github.com/XinFinOrg/XDPoSChain/event"
+	"github.com/XinFinOrg/XDPoSChain/les"
+	"github.com/XinFinOrg/XDPoSChain/log"
+	"github.com/XinFinOrg/XDPoSChain/p2p"
+	"github.com/XinFinOrg/XDPoSChain/rpc"
+	"github.com/gorilla/websocket"
 )
 
 const (
@@ -49,17 +51,23 @@ const (
 	// history request.
 	historyUpdateRange = 50
 
-	// txChanSize is the size of channel listening to TxPreEvent.
+	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 10
 )
 
+type consensusEngine interface {
+	// SubscribeForensicsEvent should return an event subscription of
+	// ForensicsEvent and send events to the given channel.
+	SubscribeForensicsEvent(chan<- types.ForensicsEvent) event.Subscription
+}
+
 type txPool interface {
-	// SubscribeTxPreEvent should return an event subscription of
-	// TxPreEvent and send events to the given channel.
-	SubscribeTxPreEvent(chan<- core.TxPreEvent) event.Subscription
+	// SubscribeNewTxsEvent should return an event subscription of
+	// NewTxsEvent and send events to the given channel.
+	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
 }
 
 type blockChain interface {
@@ -80,6 +88,52 @@ type Service struct {
 
 	pongCh chan struct{} // Pong notifications are fed into this channel
 	histCh chan []uint64 // History request block numbers are fed into this channel
+}
+
+// connWrapper is a wrapper to prevent concurrent-write or concurrent-read on the
+// websocket.
+//
+// From Gorilla websocket docs:
+//
+//	Connections support one concurrent reader and one concurrent writer.
+//	Applications are responsible for ensuring that no more than one goroutine calls the write methods
+//	  - NextWriter, SetWriteDeadline, WriteMessage, WriteJSON, EnableWriteCompression, SetCompressionLevel
+//	concurrently and that no more than one goroutine calls the read methods
+//	  - NextReader, SetReadDeadline, ReadMessage, ReadJSON, SetPongHandler, SetPingHandler
+//	concurrently.
+//	The Close and WriteControl methods can be called concurrently with all other methods.
+type connWrapper struct {
+	conn *websocket.Conn
+
+	rlock sync.Mutex
+	wlock sync.Mutex
+}
+
+func newConnectionWrapper(conn *websocket.Conn) *connWrapper {
+	return &connWrapper{conn: conn}
+}
+
+// WriteJSON wraps corresponding method on the websocket but is safe for concurrent calling
+func (w *connWrapper) WriteJSON(v interface{}) error {
+	w.wlock.Lock()
+	defer w.wlock.Unlock()
+
+	return w.conn.WriteJSON(v)
+}
+
+// ReadJSON wraps corresponding method on the websocket but is safe for concurrent calling
+func (w *connWrapper) ReadJSON(v interface{}) error {
+	w.rlock.Lock()
+	defer w.rlock.Unlock()
+
+	return w.conn.ReadJSON(v)
+}
+
+// Close wraps corresponding method on the websocket but is safe for concurrent calling
+func (w *connWrapper) Close() error {
+	// The Close and WriteControl methods can be called concurrently with all other methods,
+	// so the mutex is not used here
+	return w.conn.Close()
 }
 
 // New returns a monitoring service ready for stats reporting.
@@ -125,6 +179,8 @@ func (s *Service) Start(server *p2p.Server) error {
 	log.Info("Stats daemon started")
 	return nil
 }
+func (s *Service) SaveData() {
+}
 
 // Stop implements node.Service, terminating the monitoring and reporting daemon.
 func (s *Service) Stop() error {
@@ -138,9 +194,11 @@ func (s *Service) loop() {
 	// Subscribe to chain events to execute updates on
 	var blockchain blockChain
 	var txpool txPool
+	var engine consensusEngine
 	if s.eth != nil {
 		blockchain = s.eth.BlockChain()
 		txpool = s.eth.TxPool()
+		engine = s.eth.Engine().(*XDPoS.XDPoS)
 	} else {
 		blockchain = s.les.BlockChain()
 		txpool = s.les.TxPool()
@@ -150,15 +208,23 @@ func (s *Service) loop() {
 	headSub := blockchain.SubscribeChainHeadEvent(chainHeadCh)
 	defer headSub.Unsubscribe()
 
-	txEventCh := make(chan core.TxPreEvent, txChanSize)
-	txSub := txpool.SubscribeTxPreEvent(txEventCh)
+	txEventCh := make(chan core.NewTxsEvent, txChanSize)
+	txSub := txpool.SubscribeNewTxsEvent(txEventCh)
 	defer txSub.Unsubscribe()
+
+	// Forensics events
+	forensicsEventCh := make(chan types.ForensicsEvent)
+	if engine != nil {
+		forensicsSub := engine.SubscribeForensicsEvent(forensicsEventCh)
+		defer forensicsSub.Unsubscribe()
+	}
 
 	// Start a goroutine that exhausts the subsciptions to avoid events piling up
 	var (
-		quitCh = make(chan struct{})
-		headCh = make(chan *types.Block, 1)
-		txCh   = make(chan struct{}, 1)
+		quitCh      = make(chan struct{})
+		headCh      = make(chan *types.Block, 1)
+		txCh        = make(chan struct{}, 1)
+		forensicsCh = make(chan *types.ForensicProof, 1)
 	)
 	go func() {
 		var lastTx mclock.AbsTime
@@ -166,6 +232,11 @@ func (s *Service) loop() {
 	HandleLoop:
 		for {
 			select {
+			case forensics := <-forensicsEventCh:
+				select {
+				case forensicsCh <- forensics.ForensicsProof:
+				default:
+				}
 			// Notify of chain head events, but drop if too frequent
 			case head := <-chainHeadCh:
 				select {
@@ -205,16 +276,17 @@ func (s *Service) loop() {
 		}
 		// Establish a websocket connection to the server on any supported URL
 		var (
-			conf *websocket.Config
-			conn *websocket.Conn
+			conn *connWrapper
 			err  error
 		)
+		dialer := websocket.Dialer{HandshakeTimeout: 5 * time.Second}
+		header := make(http.Header)
+		header.Set("origin", "http://localhost")
 		for _, url := range urls {
-			if conf, err = websocket.NewConfig(url, "http://localhost/"); err != nil {
-				continue
-			}
-			conf.Dialer = &net.Dialer{Timeout: 5 * time.Second}
-			if conn, err = websocket.DialConfig(conf); err == nil {
+			c, _, e := dialer.Dial(url, header)
+			err = e
+			if err == nil {
+				conn = newConnectionWrapper(c)
 				break
 			}
 		}
@@ -266,6 +338,10 @@ func (s *Service) loop() {
 				if err = s.reportPending(conn); err != nil {
 					log.Warn("Transaction stats report failed", "err", err)
 				}
+			case forensicsReport := <-forensicsCh:
+				if err = s.reportForensics(conn, forensicsReport); err != nil {
+					log.Error("Forensics proof stats report failed", "err", err)
+				}
 			}
 		}
 		// Make sure the connection is closed
@@ -277,14 +353,29 @@ func (s *Service) loop() {
 // from the network socket. If any of them match an active request, it forwards
 // it, if they themselves are requests it initiates a reply, and lastly it drops
 // unknown packets.
-func (s *Service) readLoop(conn *websocket.Conn) {
+func (s *Service) readLoop(conn *connWrapper) {
 	// If the read loop exists, close the connection
 	defer conn.Close()
 
 	for {
 		// Retrieve the next generic network packet and bail out on error
+		var blob json.RawMessage
+		if err := conn.ReadJSON(&blob); err != nil {
+			log.Warn("Failed to retrieve stats server message", "err", err)
+			return
+		}
+		// If the network packet is a system ping, respond to it directly
+		var ping string
+		if err := json.Unmarshal(blob, &ping); err == nil && strings.HasPrefix(ping, "primus::ping::") {
+			if err := conn.WriteJSON(strings.Replace(ping, "ping", "pong", -1)); err != nil {
+				log.Warn("Failed to respond to system ping message", "err", err)
+				return
+			}
+			continue
+		}
+		// Not a system ping, try to decode an actual state message
 		var msg map[string][]interface{}
-		if err := websocket.JSON.Receive(conn, &msg); err != nil {
+		if err := json.Unmarshal(blob, &msg); err != nil {
 			log.Warn("Failed to decode stats server message", "err", err)
 			return
 		}
@@ -368,7 +459,7 @@ type authMsg struct {
 }
 
 // login tries to authorize the client at the remote server.
-func (s *Service) login(conn *websocket.Conn) error {
+func (s *Service) login(conn *connWrapper) error {
 	// Construct and send the login authentication
 	infos := s.server.NodeInfo()
 
@@ -399,12 +490,12 @@ func (s *Service) login(conn *websocket.Conn) error {
 	login := map[string][]interface{}{
 		"emit": {"hello", auth},
 	}
-	if err := websocket.JSON.Send(conn, login); err != nil {
+	if err := conn.WriteJSON(login); err != nil {
 		return err
 	}
 	// Retrieve the remote ack or connection termination
 	var ack map[string][]string
-	if err := websocket.JSON.Receive(conn, &ack); err != nil || len(ack["emit"]) != 1 || ack["emit"][0] != "ready" {
+	if err := conn.ReadJSON(&ack); err != nil || len(ack["emit"]) != 1 || ack["emit"][0] != "ready" {
 		return errors.New("unauthorized")
 	}
 	return nil
@@ -413,7 +504,7 @@ func (s *Service) login(conn *websocket.Conn) error {
 // report collects all possible data to report and send it to the stats server.
 // This should only be used on reconnects or rarely to avoid overloading the
 // server. Use the individual methods for reporting subscribed events.
-func (s *Service) report(conn *websocket.Conn) error {
+func (s *Service) report(conn *connWrapper) error {
 	if err := s.reportLatency(conn); err != nil {
 		return err
 	}
@@ -431,7 +522,7 @@ func (s *Service) report(conn *websocket.Conn) error {
 
 // reportLatency sends a ping request to the server, measures the RTT time and
 // finally sends a latency update.
-func (s *Service) reportLatency(conn *websocket.Conn) error {
+func (s *Service) reportLatency(conn *connWrapper) error {
 	// Send the current time to the ethstats server
 	start := time.Now()
 
@@ -441,7 +532,7 @@ func (s *Service) reportLatency(conn *websocket.Conn) error {
 			"clientTime": start.String(),
 		}},
 	}
-	if err := websocket.JSON.Send(conn, ping); err != nil {
+	if err := conn.WriteJSON(ping); err != nil {
 		return err
 	}
 	// Wait for the pong request to arrive back
@@ -463,7 +554,7 @@ func (s *Service) reportLatency(conn *websocket.Conn) error {
 			"latency": latency,
 		}},
 	}
-	return websocket.JSON.Send(conn, stats)
+	return conn.WriteJSON(stats)
 }
 
 // blockStats is the information to report about individual blocks.
@@ -483,6 +574,13 @@ type blockStats struct {
 	Uncles     uncleStats     `json:"uncles"`
 }
 
+// blockStats is the information to report about individual blocks.
+type latestCommittedBlockStats struct {
+	Number *big.Int    `json:"number"`
+	Hash   common.Hash `json:"hash"`
+	Round  uint64      `json:"round"`
+}
+
 // txStats is the information to report about individual transactions.
 type txStats struct {
 	Hash common.Hash `json:"hash"`
@@ -500,7 +598,7 @@ func (s uncleStats) MarshalJSON() ([]byte, error) {
 }
 
 // reportBlock retrieves the current chain head and repors it to the stats server.
-func (s *Service) reportBlock(conn *websocket.Conn, block *types.Block) error {
+func (s *Service) reportBlock(conn *connWrapper, block *types.Block) error {
 	// Gather the block details from the header or block chain
 	details := s.assembleBlockStats(block)
 
@@ -511,10 +609,36 @@ func (s *Service) reportBlock(conn *websocket.Conn, block *types.Block) error {
 		"id":    s.node,
 		"block": details,
 	}
+
+	// Get the latest committed block information
+	if (s.engine.(*XDPoS.XDPoS).EngineV2 != nil) && (s.engine.(*XDPoS.XDPoS).EngineV2.GetLatestCommittedBlockInfo() != nil) {
+		latestCommittedBlockInfo := s.engine.(*XDPoS.XDPoS).EngineV2.GetLatestCommittedBlockInfo()
+		stats["latestCommittedBlockInfo"] = &latestCommittedBlockStats{
+			Number: latestCommittedBlockInfo.Number,
+			Round:  uint64(latestCommittedBlockInfo.Round),
+			Hash:   latestCommittedBlockInfo.Hash,
+		}
+	}
+
 	report := map[string][]interface{}{
 		"emit": {"block", stats},
 	}
-	return websocket.JSON.Send(conn, report)
+
+	return conn.WriteJSON(report)
+}
+
+// reportForensics forward the forensics repors it to the stats server.
+func (s *Service) reportForensics(conn *connWrapper, forensicsProof *types.ForensicProof) error {
+	log.Info("Sending Forensics report to ethstats", "ForensicsType", forensicsProof.ForensicsType)
+
+	stats := map[string]interface{}{
+		"id":             s.node,
+		"forensicsProof": forensicsProof,
+	}
+	report := map[string][]interface{}{
+		"emit": {"forensics", stats},
+	}
+	return conn.WriteJSON(report)
 }
 
 // assembleBlockStats retrieves any required metadata to report a single block
@@ -551,7 +675,10 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		txs = []txStats{}
 	}
 	// Assemble and return the block stats
-	author, _ := s.engine.Author(header)
+	author, err := s.engine.Author(header)
+	if err != nil {
+		log.Error("Failed to retrieve block author", "err", err, "number", header.Number, "hash", header.Hash())
+	}
 
 	return &blockStats{
 		Number:     header.Number,
@@ -572,7 +699,7 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 
 // reportHistory retrieves the most recent batch of blocks and reports it to the
 // stats server.
-func (s *Service) reportHistory(conn *websocket.Conn, list []uint64) error {
+func (s *Service) reportHistory(conn *connWrapper, list []uint64) error {
 	// Figure out the indexes that need reporting
 	indexes := make([]uint64, 0, historyUpdateRange)
 	if len(list) > 0 {
@@ -628,7 +755,7 @@ func (s *Service) reportHistory(conn *websocket.Conn, list []uint64) error {
 	report := map[string][]interface{}{
 		"emit": {"history", stats},
 	}
-	return websocket.JSON.Send(conn, report)
+	return conn.WriteJSON(report)
 }
 
 // pendStats is the information to report about pending transactions.
@@ -638,7 +765,7 @@ type pendStats struct {
 
 // reportPending retrieves the current number of pending transactions and reports
 // it to the stats server.
-func (s *Service) reportPending(conn *websocket.Conn) error {
+func (s *Service) reportPending(conn *connWrapper) error {
 	// Retrieve the pending count from the local blockchain
 	var pending int
 	if s.eth != nil {
@@ -658,7 +785,7 @@ func (s *Service) reportPending(conn *websocket.Conn) error {
 	report := map[string][]interface{}{
 		"emit": {"pending", stats},
 	}
-	return websocket.JSON.Send(conn, report)
+	return conn.WriteJSON(report)
 }
 
 // nodeStats is the information to report about the local node.
@@ -674,7 +801,7 @@ type nodeStats struct {
 
 // reportPending retrieves various stats about the node at the networking and
 // mining layer and reports it to the stats server.
-func (s *Service) reportStats(conn *websocket.Conn) error {
+func (s *Service) reportStats(conn *connWrapper) error {
 	// Gather the syncing and mining infos from the local miner instance
 	var (
 		mining   bool
@@ -713,5 +840,5 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 	report := map[string][]interface{}{
 		"emit": {"stats", stats},
 	}
-	return websocket.JSON.Send(conn, report)
+	return conn.WriteJSON(report)
 }

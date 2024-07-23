@@ -149,7 +149,7 @@ func TestAddressHexChecksum(t *testing.T) {
 }
 
 func BenchmarkAddressHex(b *testing.B) {
-	testAddr := HexToAddress("0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed")
+	testAddr := HexToAddress("0xdc5aaeb6053f3e94c9b9a09f33669435e7ef1beaed")
 	for n := 0; n < b.N; n++ {
 		testAddr.Hex()
 	}
@@ -158,8 +158,12 @@ func BenchmarkAddressHex(b *testing.B) {
 func TestRemoveItemInArray(t *testing.T) {
 	array := []Address{HexToAddress("0x0000003"), HexToAddress("0x0000001"), HexToAddress("0x0000002"), HexToAddress("0x0000003")}
 	remove := []Address{HexToAddress("0x0000002"), HexToAddress("0x0000004"), HexToAddress("0x0000003")}
-	array = RemoveItemFromArray(array, remove)
-	if len(array) != 1 {
+	newArray := RemoveItemFromArray(array, remove)
+
+	if array[0] != HexToAddress("0x0000003") || array[2] != HexToAddress("0x0000002") {
+		t.Error("should keep the original item from array address")
+	}
+	if len(newArray) != 1 {
 		t.Error("fail remove item from array address")
 	}
 }

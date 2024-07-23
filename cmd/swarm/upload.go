@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"os"
@@ -30,8 +29,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	swarm "github.com/ethereum/go-ethereum/swarm/api/client"
+	"github.com/XinFinOrg/XDPoSChain/cmd/utils"
+	swarm "github.com/XinFinOrg/XDPoSChain/swarm/api/client"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -51,7 +50,7 @@ func upload(ctx *cli.Context) {
 
 	if len(args) != 1 {
 		if fromStdin {
-			tmp, err := ioutil.TempFile("", "swarm-stdin")
+			tmp, err := os.CreateTemp("", "swarm-stdin")
 			if err != nil {
 				utils.Fatalf("error create tempfile: %s", err)
 			}

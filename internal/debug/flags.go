@@ -24,10 +24,10 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/log/term"
-	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/metrics/exp"
+	"github.com/XinFinOrg/XDPoSChain/log"
+	"github.com/XinFinOrg/XDPoSChain/log/term"
+	"github.com/XinFinOrg/XDPoSChain/metrics"
+	"github.com/XinFinOrg/XDPoSChain/metrics/exp"
 	colorable "github.com/mattn/go-colorable"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -83,6 +83,14 @@ var (
 		Name:  "trace",
 		Usage: "Write execution trace to the given file",
 	}
+	periodicProfilingFlag = cli.BoolFlag{
+		Name:  "periodicprofile",
+		Usage: "Periodically profile cpu and memory status",
+	}
+	debugDataDirFlag = cli.StringFlag{
+		Name:  "debugdatadir",
+		Usage: "Debug Data directory for profiling output",
+	}
 )
 
 // Flags holds all command-line flags required for debugging.
@@ -90,14 +98,16 @@ var Flags = []cli.Flag{
 	VerbosityFlag,
 	//vmoduleFlag,
 	//backtraceAtFlag,
-	//debugFlag,
-	//pprofFlag,
-	//pprofAddrFlag,
-	//pprofPortFlag,
-	//memprofilerateFlag,
+	debugFlag,
+	pprofFlag,
+	pprofAddrFlag,
+	pprofPortFlag,
+	memprofilerateFlag,
 	//blockprofilerateFlag,
-	//cpuprofileFlag,
+	cpuprofileFlag,
 	//traceFlag,
+	//periodicProfilingFlag,
+	debugDataDirFlag,
 }
 
 var Glogger *log.GlogHandler
@@ -133,6 +143,11 @@ func Setup(ctx *cli.Context) error {
 		if err := Handler.StartCPUProfile(cpuFile); err != nil {
 			return err
 		}
+	}
+	Handler.filePath = ctx.GlobalString(debugDataDirFlag.Name)
+
+	if periodicProfiling := ctx.GlobalBool(periodicProfilingFlag.Name); periodicProfiling {
+		Handler.PeriodicComputeProfiling()
 	}
 
 	// pprof server

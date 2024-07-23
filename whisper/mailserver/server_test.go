@@ -20,14 +20,14 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/binary"
-	"io/ioutil"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
+	"github.com/XinFinOrg/XDPoSChain/common"
+	"github.com/XinFinOrg/XDPoSChain/crypto"
+	whisper "github.com/XinFinOrg/XDPoSChain/whisper/whisperv6"
 )
 
 const powRequirement = 0.00001
@@ -83,7 +83,7 @@ func TestMailServer(t *testing.T) {
 	const password = "password_for_this_test"
 	const dbPath = "whisper-server-test"
 
-	dir, err := ioutil.TempDir("", dbPath)
+	dir, err := os.MkdirTemp("", dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}

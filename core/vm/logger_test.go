@@ -20,15 +20,16 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/XinFinOrg/XDPoSChain/common"
+	"github.com/XinFinOrg/XDPoSChain/core/state"
+	"github.com/XinFinOrg/XDPoSChain/params"
+	"github.com/holiman/uint256"
 )
 
 type dummyContractRef struct {
 	calledForEach bool
 }
 
-func (dummyContractRef) ReturnGas(*big.Int)          {}
 func (dummyContractRef) Address() common.Address     { return common.Address{} }
 func (dummyContractRef) Value() *big.Int             { return new(big.Int) }
 func (dummyContractRef) SetCode(common.Hash, []byte) {}
@@ -41,25 +42,27 @@ func (d *dummyContractRef) SetBalance(*big.Int)        {}
 func (d *dummyContractRef) SetNonce(uint64)            {}
 func (d *dummyContractRef) Balance() *big.Int          { return new(big.Int) }
 
-type dummyStateDB struct {
-	NoopStateDB
-	ref *dummyContractRef
+type dummyStatedb struct {
+	state.StateDB
 }
+
+func (*dummyStatedb) GetRefund() uint64 { return 1337 }
 
 func TestStoreCapture(t *testing.T) {
 	var (
-		env      = NewEVM(Context{}, nil, params.TestChainConfig, Config{})
+		env      = NewEVM(Context{}, &dummyStatedb{}, nil, params.TestChainConfig, Config{})
 		logger   = NewStructLogger(nil)
-		mem      = NewMemory()
-		stack    = newstack()
 		contract = NewContract(&dummyContractRef{}, &dummyContractRef{}, new(big.Int), 0)
+		scope    = &ScopeContext{
+			Memory:   NewMemory(),
+			Stack:    newstack(),
+			Contract: contract,
+		}
 	)
-	stack.push(big.NewInt(1))
-	stack.push(big.NewInt(0))
-
+	scope.Stack.push(uint256.NewInt(1))
+	scope.Stack.push(new(uint256.Int))
 	var index common.Hash
-
-	logger.CaptureState(env, 0, SSTORE, 0, 0, mem, stack, contract, 0, nil)
+	logger.CaptureState(env, 0, SSTORE, 0, 0, scope, nil, 0, nil)
 	if len(logger.changedValues[contract.Address()]) == 0 {
 		t.Fatalf("expected exactly 1 changed value on address %x, got %d", contract.Address(), len(logger.changedValues[contract.Address()]))
 	}

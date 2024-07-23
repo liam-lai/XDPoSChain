@@ -19,13 +19,14 @@ package eth
 import (
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/bitutil"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/bloombits"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/XinFinOrg/XDPoSChain/common"
+	"github.com/XinFinOrg/XDPoSChain/common/bitutil"
+	"github.com/XinFinOrg/XDPoSChain/core"
+	"github.com/XinFinOrg/XDPoSChain/core/bloombits"
+	"github.com/XinFinOrg/XDPoSChain/core/rawdb"
+	"github.com/XinFinOrg/XDPoSChain/core/types"
+	"github.com/XinFinOrg/XDPoSChain/ethdb"
+	"github.com/XinFinOrg/XDPoSChain/params"
 )
 
 const (
@@ -43,7 +44,7 @@ const (
 
 	// bloomRetrievalWait is the maximum time to wait for enough bloom bit requests
 	// to accumulate request an entire batch (avoiding hysteresis).
-	bloomRetrievalWait = time.Duration(0)
+	bloomRetrievalWait = time.Microsecond * 100
 )
 
 // startBloomHandlers starts a batch of goroutines to accept bloom bit database
@@ -107,7 +108,7 @@ func NewBloomIndexer(db ethdb.Database, size uint64) *core.ChainIndexer {
 		db:   db,
 		size: size,
 	}
-	table := ethdb.NewTable(db, string(core.BloomBitsIndexPrefix))
+	table := rawdb.NewTable(db, string(core.BloomBitsIndexPrefix))
 
 	return core.NewChainIndexer(db, table, backend, size, bloomConfirms, bloomThrottling, "bloombits")
 }

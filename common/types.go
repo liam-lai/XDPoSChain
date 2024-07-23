@@ -23,23 +23,31 @@ import (
 	"math/rand"
 	"reflect"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/XinFinOrg/XDPoSChain/common/hexutil"
+	"github.com/XinFinOrg/XDPoSChain/crypto/sha3"
 )
 
 const (
-	HashLength          = 32
-	AddressLength       = 20
-	MasternodeVotingSMC = "xdc0000000000000000000000000000000000000088"
-	BlockSigners        = "xdc0000000000000000000000000000000000000089"
-	RandomizeSMC        = "xdc0000000000000000000000000000000000000090"
-	FoudationAddr       = "xdc746249C61f5832C5eEd53172776b460491bDcd5C"
-	TeamAddr            = "xdc0000000000000000000000000000000000000099"
-	VoteMethod          = "0x6dd7d8ea"
-	UnvoteMethod        = "0x02aa9be2"
-	ProposeMethod       = "0x01267951"
-	ResignMethod        = "0xae6e43f5"
-	SignMethod          = "0xe341eaa4"
+	HashLength                       = 32
+	AddressLength                    = 20
+	BlockSigners                     = "xdc0000000000000000000000000000000000000089"
+	MasternodeVotingSMC              = "xdc0000000000000000000000000000000000000088"
+	RandomizeSMC                     = "xdc0000000000000000000000000000000000000090"
+	FoudationAddr                    = "xdc0000000000000000000000000000000000000068"
+	TeamAddr                         = "xdc0000000000000000000000000000000000000099"
+	XDCXAddr                         = "xdc0000000000000000000000000000000000000091"
+	TradingStateAddr                 = "xdc0000000000000000000000000000000000000092"
+	XDCXLendingAddress               = "xdc0000000000000000000000000000000000000093"
+	XDCXLendingFinalizedTradeAddress = "xdc0000000000000000000000000000000000000094"
+	XDCNativeAddress                 = "xdc0000000000000000000000000000000000000001"
+	LendingLockAddress               = "xdc0000000000000000000000000000000000000011"
+	VoteMethod                       = "0x6dd7d8ea"
+	UnvoteMethod                     = "0x02aa9be2"
+	ProposeMethod                    = "0x01267951"
+	ResignMethod                     = "0xae6e43f5"
+	SignMethod                       = "0xe341eaa4"
+	XDCXApplyMethod                  = "0xc6b32f34"
+	XDCZApplyMethod                  = "0xc6b32f34"
 )
 
 var (
@@ -50,6 +58,11 @@ var (
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
 type Hash [HashLength]byte
 
+type Vote struct {
+	Masternode Address
+	Voter      Address
+}
+
 func BytesToHash(b []byte) Hash {
 	var h Hash
 	h.SetBytes(b)
@@ -57,7 +70,11 @@ func BytesToHash(b []byte) Hash {
 }
 func StringToHash(s string) Hash { return BytesToHash([]byte(s)) }
 func BigToHash(b *big.Int) Hash  { return BytesToHash(b.Bytes()) }
+func Uint64ToHash(b uint64) Hash { return BytesToHash(new(big.Int).SetUint64(b).Bytes()) }
 func HexToHash(s string) Hash    { return BytesToHash(FromHex(s)) }
+
+// IsZero returns if a Hash is empty
+func (h Hash) IsZero() bool { return h == Hash{} }
 
 // Get the string representation of the underlying hash
 func (h Hash) Str() string   { return string(h[:]) }
@@ -153,9 +170,16 @@ func BytesToAddress(b []byte) Address {
 	a.SetBytes(b)
 	return a
 }
+
 func StringToAddress(s string) Address { return BytesToAddress([]byte(s)) }
-func BigToAddress(b *big.Int) Address  { return BytesToAddress(b.Bytes()) }
-func HexToAddress(s string) Address    { return BytesToAddress(FromHex(s)) }
+
+// BigToAddress returns Address with byte values of b.
+// If b is larger than len(h), b will be cropped from the left.
+func BigToAddress(b *big.Int) Address { return BytesToAddress(b.Bytes()) }
+
+// HexToAddress returns Address with byte values of s.
+// If s is larger than len(h), s will be cropped from the left.
+func HexToAddress(s string) Address { return BytesToAddress(FromHex(s)) }
 
 // IsHexAddress verifies whether a string can represent a valid hex-encoded
 // Ethereum address or not.
@@ -168,6 +192,9 @@ func IsHexAddress(s string) bool {
 	}
 	return len(s) == 2*AddressLength && isHex(s)
 }
+
+// IsZero returns if a address is empty
+func (a Address) IsZero() bool { return a == Address{} }
 
 // Get the string representation of the underlying address
 func (a Address) Str() string   { return string(a[:]) }
@@ -228,7 +255,12 @@ func (a *Address) Set(other Address) {
 
 // MarshalText returns the hex representation of a.
 func (a Address) MarshalText() ([]byte, error) {
-	return hexutil.Bytes(a[:]).MarshalXDCText()
+	// Handle '0x' or 'xdc' prefix here.
+	if (Enable0xPrefix) {
+		return hexutil.Bytes(a[:]).MarshalText()
+	} else {
+		return hexutil.Bytes(a[:]).MarshalXDCText()
+	}
 }
 
 // UnmarshalText parses a hash in hex syntax.
@@ -256,19 +288,23 @@ func (a UnprefixedAddress) MarshalText() ([]byte, error) {
 
 // Extract validators from byte array.
 func RemoveItemFromArray(array []Address, items []Address) []Address {
+	// Create newArray to stop append change array value
+	newArray := make([]Address, len(array))
+	copy(newArray, array)
+
 	if len(items) == 0 {
-		return array
+		return newArray
 	}
 
 	for _, item := range items {
-		for i := len(array) - 1; i >= 0; i-- {
-			if array[i] == item {
-				array = append(array[:i], array[i+1:]...)
+		for i := len(newArray) - 1; i >= 0; i-- {
+			if newArray[i] == item {
+				newArray = append(newArray[:i], newArray[i+1:]...)
 			}
 		}
 	}
 
-	return array
+	return newArray
 }
 
 // Extract validators from byte array.

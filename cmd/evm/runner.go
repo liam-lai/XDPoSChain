@@ -20,23 +20,24 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"runtime/pprof"
 	"time"
 
+	"github.com/XinFinOrg/XDPoSChain/core/rawdb"
+
 	goruntime "runtime"
 
-	"github.com/ethereum/go-ethereum/cmd/evm/internal/compiler"
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/core/vm/runtime"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/XinFinOrg/XDPoSChain/cmd/evm/internal/compiler"
+	"github.com/XinFinOrg/XDPoSChain/cmd/utils"
+	"github.com/XinFinOrg/XDPoSChain/common"
+	"github.com/XinFinOrg/XDPoSChain/core"
+	"github.com/XinFinOrg/XDPoSChain/core/state"
+	"github.com/XinFinOrg/XDPoSChain/core/vm"
+	"github.com/XinFinOrg/XDPoSChain/core/vm/runtime"
+	"github.com/XinFinOrg/XDPoSChain/log"
+	"github.com/XinFinOrg/XDPoSChain/params"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -96,12 +97,12 @@ func runCmd(ctx *cli.Context) error {
 	}
 	if ctx.GlobalString(GenesisFlag.Name) != "" {
 		gen := readGenesis(ctx.GlobalString(GenesisFlag.Name))
-		db, _ := ethdb.NewMemDatabase()
+		db := rawdb.NewMemoryDatabase()
 		genesis := gen.ToBlock(db)
 		statedb, _ = state.New(genesis.Root(), state.NewDatabase(db))
 		chainConfig = gen.Config
 	} else {
-		db, _ := ethdb.NewMemDatabase()
+		db := rawdb.NewMemoryDatabase()
 		statedb, _ = state.New(common.Hash{}, state.NewDatabase(db))
 	}
 	if ctx.GlobalString(SenderFlag.Name) != "" {
@@ -125,13 +126,13 @@ func runCmd(ctx *cli.Context) error {
 		// If - is specified, it means that code comes from stdin
 		if ctx.GlobalString(CodeFileFlag.Name) == "-" {
 			//Try reading from stdin
-			if hexcode, err = ioutil.ReadAll(os.Stdin); err != nil {
+			if hexcode, err = io.ReadAll(os.Stdin); err != nil {
 				fmt.Printf("Could not load code from stdin: %v\n", err)
 				os.Exit(1)
 			}
 		} else {
 			// Codefile with hex assembly
-			if hexcode, err = ioutil.ReadFile(ctx.GlobalString(CodeFileFlag.Name)); err != nil {
+			if hexcode, err = os.ReadFile(ctx.GlobalString(CodeFileFlag.Name)); err != nil {
 				fmt.Printf("Could not load code from file: %v\n", err)
 				os.Exit(1)
 			}
@@ -142,7 +143,7 @@ func runCmd(ctx *cli.Context) error {
 		code = common.Hex2Bytes(ctx.GlobalString(CodeFlag.Name))
 	} else if fn := ctx.Args().First(); len(fn) > 0 {
 		// EASM-file to compile
-		src, err := ioutil.ReadFile(fn)
+		src, err := os.ReadFile(fn)
 		if err != nil {
 			return err
 		}

@@ -29,17 +29,16 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/XinFinOrg/XDPoSChain/log"
+	"github.com/XinFinOrg/XDPoSChain/metrics"
+	"github.com/XinFinOrg/XDPoSChain/rlp"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
 
-//metrics variables
+// metrics variables
 var (
 	gcCounter            = metrics.NewRegisteredCounter("storage.db.dbstore.gc.count", nil)
 	dbStoreDeleteCounter = metrics.NewRegisteredCounter("storage.db.dbstore.rm.count", nil)
@@ -338,7 +337,7 @@ func (s *DbStore) Import(in io.Reader) (int64, error) {
 			continue
 		}
 
-		data, err := ioutil.ReadAll(tr)
+		data, err := io.ReadAll(tr)
 		if err != nil {
 			return count, err
 		}
@@ -540,7 +539,8 @@ func (s *DbStore) Close() {
 	s.db.Close()
 }
 
-//  describes a section of the DbStore representing the unsynced
+//	describes a section of the DbStore representing the unsynced
+//
 // domain relevant to a peer
 // Start - Stop designate a continuous area Keys in an address space
 // typically the addresses closer to us than to the peer but not closer
